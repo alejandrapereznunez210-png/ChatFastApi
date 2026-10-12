@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Chat</title>
+</head>
+<body>
+
+    <h2>Chat grupal</h2>
+
+    <div id="inicio">
+        Nombre:
+        <input type="text" id="nombre">
+        <button onclick="conectar()">Entrar</button>
+    </div>
+
+    <div id="chat" style="display: none;">
+
+        <p>Usuarios conectados:</p>
+        <ul id="usuarios"></ul>
+
+        <div id="mensajes"></div>
+
+        <input type="text" id="texto" placeholder="Mensaje">
+        <button onclick="enviarMensaje()">Enviar</button>
+
+    </div>
+
+    <script>
+        let socket;
+
+        function conectar() {
+            let nombre = document.getElementById("nombre").value.trim();
+
+            if (nombre === "") {
+                alert("Escribe tu nombre");
+                return;
+            }
+
+            let protocolo = location.protocol === "https:" ? "wss:" : "ws:";
+            socket = new WebSocket(protocolo + "//" + location.host + "/ws");
+
+            socket.onopen = function() {
+                socket.send(nombre);
+                document.getElementById("inicio").style.display = "none";
+                document.getElementById("chat").style.display = "block";
+            };
+
+            socket.onmessage = function(evento) {
+                try {
+                    let datos = JSON.parse(evento.data);
+
+                    if (datos.tipo === "mensaje") {
+                        let linea = document.createElement("p");
+                        linea.textContent = datos.nombre + ": " +
+                            datos.contenido + " " +
+                            (datos.fecha ? new Date(datos.fecha).toLocaleTimeString() : "");
+                        document.getElementById("mensajes").appendChild(linea);
+                    }
+
+                    else if (datos.tipo === "sistema") {
+                        let linea = document.createElement("p");
+                        linea.textContent = datos.mensaje;
+                        document.getElementById("mensajes").appendChild(linea);
+                    }
+
+                    else if (datos.tipo === "usuarios") {
+                        let lista = document.getElementById("usuarios");
+                        lista.innerHTML = "";
+
+                        datos.usuarios.forEach(function(usuario) {
+                            let elemento = document.createElement("li");
+                            elemento.textContent = usuario;
+                            lista.appendChild(elemento);
+                        });
+                    }
+
+                } catch (error) {
+                    let linea = document.createElement("p");
+                    linea.textContent = evento.data;
+                    document.getElementById("mensajes").appendChild(linea);
+                }
+            };
+        }
+
+        function enviarMensaje() {
+            let campo = document.getElementById("texto");
+            let mensaje = campo.value.trim();
+
+            if (mensaje !== "" && socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(mensaje);
+                campo.value = "";
+            }
+        }
+
+        document.getElementById("texto").addEventListener("keydown", function(evento) {
+            if (evento.key === "Enter") {
+                enviarMensaje();
+            }
+        });
+    </script>
+
+</body>
+</html>
